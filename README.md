@@ -32,3 +32,8 @@ async fn main() {
 }
 
 ```
+
+## Todo
+- Clean up code.
+- Documentation.
+- Input validation (telephone number must be in valid format, message length must be under 160,...)
