@@ -28,7 +28,9 @@ async fn main() {
     let from = "+32.xxxxxxxxx".to_string();
     let message = "Hello world!".to_string();
 
-    tigron_sms.send(to, from, message).await;
+    if let Err(e) = tigron_sms.send(to, from, message).await {
+        println!("{}", e);
+    }
 }
 
 ```

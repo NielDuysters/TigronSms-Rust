@@ -3,6 +3,7 @@
     Written by: Niel Duysters (contact@ndvibes.com)
 */
 
+use regex::Regex;
 use xml::reader::{EventReader, XmlEvent};
 
 // Client to send a text-message through Tigron's API
@@ -23,13 +24,29 @@ struct SoapClient {
 struct XmlResponseParser;
 
 impl TigronSms {
+
     /*
         Method to send a text-message
         :param to: Telephone number to send message to. Format: +xx.xxxxxxxxx
         :param from: Source of message. Format: +xx.xxxxxxxxx
         :param message: Content of message to send
+        :return Result<(), &str>: Returns Ok() if successfull. Returns an error otherwise.
     */
-    pub async fn send(&self, to: String, from: String, message: String) {
+    pub async fn send(&self, to: String, from: String, message: String) -> Result<(), &str> {
+        // Input validation
+        let phone_number_regex = Regex::new(r"\+\d{2,3}\.\d{7,12}").unwrap();
+        if message.len() == 0 {
+            return Err("Message cannot be empty.");
+        }
+        if message.len() > 160 {
+            return Err("Message cannot be more than 160 characters");
+        }
+        if !phone_number_regex.is_match(&to) || !phone_number_regex.is_match(&from) {
+            return Err(
+                "Phone numbers must be in the format: +xx.yyyyyyyyy where xx is the country code.",
+            );
+        }
+
         let soap_client = SoapClient {
             url: "https://api.tigron.net/soap".to_string(),
             ns: "https://www.tigron.net/ns/".to_string(),
@@ -40,6 +57,10 @@ impl TigronSms {
         };
 
         let user_id = &*self.get_user_id().await;
+        if user_id.is_empty() {
+            return Err("User not found. Are your credentials correct?");
+        }
+
         let sms_params = vec![
             ("user_id", user_id),
             ("from", &*from),
@@ -48,6 +69,8 @@ impl TigronSms {
         ];
 
         soap_client.call("sms", "send_sms", Some(sms_params)).await;
+
+        Ok(())
     }
 
     // Function to retrieve user_id
@@ -70,6 +93,7 @@ impl TigronSms {
 }
 
 impl SoapClient {
+
     /*
         Send a command to the API and retrieve XML
         :param service: Service of API to execute a command on. E.g: "sms"
@@ -77,7 +101,6 @@ impl SoapClient {
         :param params: Parameters of the command. E.g: [("from", "xxxx.xxx.xxx"), ("to", "yyyy.yyy.yyy")]
         :param String: Returns the body of the API-response
     */
-
     pub async fn call(
         &self,
         service: &str,
@@ -167,6 +190,7 @@ impl SoapClient {
 }
 
 impl XmlResponseParser {
+    
     /*
         :param xml: Takes XML as input. E.g: <item><key>xxx</key><value>yyy</value></item>
         :return Vec<(String, String)>: Returns a vector of tuples (key, value)
@@ -175,7 +199,6 @@ impl XmlResponseParser {
         let mut return_items: std::vec::Vec<(String, String)> = std::vec::Vec::new();
 
         let parser = EventReader::from_str(xml);
-        let mut start_reading = false;
         let mut read_key = false;
         let mut read_value = false;
         let mut key: String = String::new();
@@ -191,15 +214,6 @@ impl XmlResponseParser {
                     if name.local_name == "value" {
                         read_value = true;
                     }
-
-                    if name.local_name == "return" {
-                        start_reading = true;
-                    }
-                }
-                Ok(XmlEvent::EndElement { name }) => {
-                    if name.local_name == "return" {
-                        start_reading = false;
-                    }
                 }
                 Ok(XmlEvent::Characters(text)) => {
                     if read_key {
@@ -209,7 +223,7 @@ impl XmlResponseParser {
                         return_items.push((key.to_string(), text.to_string()));
                     }
                 }
-                Err(e) => {
+                Err(_e) => {
                     break;
                 }
                 _ => {}

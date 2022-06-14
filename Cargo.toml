@@ -13,3 +13,4 @@ serde_json = "*"
 futures = "*"
 tokio = { version = "0.2", features = ["full"] }
 xml-rs = "*"
+regex = "1"
