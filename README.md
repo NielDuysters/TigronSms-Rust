@@ -29,7 +29,7 @@ async fn main() {
     let message = "Hello world!".to_string();
 
     if let Err(e) = tigron_sms.send(to, from, message).await {
-        println!("{}", e);
+        eprintln!("{}", e);
     }
 }
 
